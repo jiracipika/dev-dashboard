@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { hasValidSession } from '@/lib/session'
 
 const REPOS = [
   { owner: 'jiracipika', repo: 'pitch-therapy' },
@@ -57,7 +58,7 @@ async function fetchRepo(owner: string, repo: string) {
 
 export async function GET() {
   const session = cookies().get('session')
-  if (!session) {
+  if (!hasValidSession(session?.value, process.env.DASHBOARD_PASSWORD)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

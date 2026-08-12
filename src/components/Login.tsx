@@ -14,7 +14,11 @@ export default function Login() {
     setLoading(true)
     setError('')
 
-    const res = await fetch(`/api/auth?password=${encodeURIComponent(password)}`)
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
     if (res.ok) {
       router.push('/')
       router.refresh()
@@ -33,10 +37,13 @@ export default function Login() {
         <p className="text-sm opacity-50 text-center mb-8">Enter password to continue</p>
 
         <input
+          id="password"
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           placeholder="Password"
+          aria-label="Password"
+          autoComplete="current-password"
           className="w-full px-4 py-3 rounded-xl border border-black/10 bg-white/50 dark:bg-black/20 outline-none focus:ring-2 focus:ring-blue-500/30 text-sm transition-all"
           autoFocus
         />
