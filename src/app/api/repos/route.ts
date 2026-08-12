@@ -10,10 +10,30 @@ const REPOS = [
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 async function fetchRepo(owner: string, repo: string) {
-  const [commitsRes, repoRes] = await Promise.all([
-    fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`),
-    fetch(`https://api.github.com/repos/${owner}/${repo}`),
-  ])
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10_000)
+  const headers: HeadersInit = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+
+  let commitsRes: Response
+  let repoRes: Response
+  try {
+    [commitsRes, repoRes] = await Promise.all([
+      fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`, {
+        headers, signal: controller.signal, cache: 'no-store',
+      }),
+      fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers, signal: controller.signal, cache: 'no-store',
+      }),
+    ])
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!commitsRes.ok || !repoRes.ok) {
     return null
@@ -65,11 +85,21 @@ export async function GET() {
   const results = await Promise.all(REPOS.map(r => fetchRepo(r.owner, r.repo)))
   const data = results.filter(Boolean)
 
+  if (data.length === 0) {
+    return NextResponse.json(
+      { error: 'GitHub data is temporarily unavailable' },
+      { status: 502, headers: { 'Cache-Control': 'private, no-store' } },
+    )
+  }
+
   const feed = data
     .flatMap((r: any) =>
       r.recentCommits.map((c: any) => ({ ...c, repo: r.name, fullName: r.fullName }))
     )
     .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  return NextResponse.json({ repos: data, feed })
+  return NextResponse.json(
+    { repos: data, feed, partial: data.length !== REPOS.length },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  )
 }

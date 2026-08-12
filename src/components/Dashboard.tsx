@@ -28,6 +28,7 @@ interface RepoData {
 interface DashboardData {
   repos: RepoData[]
   feed: (Commit & { repo: string; fullName: string })[]
+  partial?: boolean
 }
 
 function timeAgo(date: string) {
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [activeRepo, setActiveRepo] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -50,10 +52,15 @@ export default function Dashboard() {
         window.location.href = '/login'
         return
       }
+      if (!res.ok) throw new Error('Refresh failed')
       const json = await res.json()
+      if (!Array.isArray(json.repos) || !Array.isArray(json.feed)) {
+        throw new Error('Invalid response')
+      }
       setData(json)
+      setError(json.partial ? 'Some repositories could not be refreshed.' : null)
     } catch {
-      // silently retry
+      setError('Unable to refresh GitHub data. Retrying automatically.')
     } finally {
       setLoading(false)
     }
@@ -70,10 +77,24 @@ export default function Dashboard() {
     window.location.href = '/login'
   }
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="glass p-6 max-w-md text-center" role="alert">
+          <h1 className="font-semibold">Dashboard unavailable</h1>
+          <p className="text-sm opacity-60 mt-2">{error}</p>
+          <button onClick={fetchData} className="mt-4 px-4 py-2 rounded-xl bg-blue-500 text-white text-sm">
+            Try again
+          </button>
+        </div>
       </div>
     )
   }
@@ -92,6 +113,12 @@ export default function Dashboard() {
           Sign out
         </button>
       </header>
+
+      {error && (
+        <p className="glass p-3 mb-6 text-sm text-amber-700 dark:text-amber-300" role="status">
+          {error}
+        </p>
+      )}
 
       {selectedRepo ? (
         /* Repo Detail View */
