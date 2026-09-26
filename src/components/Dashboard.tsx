@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import ZCodePanel from './ZCodePanel'
 
 interface Commit {
   sha: string
@@ -113,6 +114,8 @@ export default function Dashboard() {
           Sign out
         </button>
       </header>
+
+      <ZCodePanel />
 
       {error && (
         <p className="glass p-3 mb-6 text-sm text-amber-700 dark:text-amber-300" role="status">
